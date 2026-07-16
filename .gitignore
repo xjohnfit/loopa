@@ -2,6 +2,9 @@
 .DS_Store
 *.pem
 
+# editor
+.vscode/
+
 # --- mobile (Expo / React Native) ---
 mobile/node_modules/
 mobile/.expo/
