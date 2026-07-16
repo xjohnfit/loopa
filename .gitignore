@@ -1,41 +1,36 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
-node_modules/
-
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
 # macOS
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# --- mobile (Expo / React Native) ---
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/.kotlin/
+mobile/*.orig.*
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/.metro-health-check*
+mobile/npm-debug.*
+mobile/yarn-debug.*
+mobile/yarn-error.*
+mobile/.env*.local
+mobile/*.tsbuildinfo
+mobile/ios/
+mobile/android/
 
-# typescript
-*.tsbuildinfo
+# --- backend (Express/TypeScript) ---
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/*.tsbuildinfo
+backend/npm-debug.*
 
-# generated native folders
-/ios
-/android
+# --- kubernetes (rendered manifests are a CI-only artifact) ---
+kubernetes/rendered/
+rendered/

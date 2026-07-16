@@ -1,7 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-// Use your machine's LAN IP for physical devices, not localhost
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL = 'https://api.loopa.codewithxjohn.com/api';
 
 export interface Task {
   id: string;

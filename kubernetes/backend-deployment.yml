@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${APP_NAME}-backend
+  labels:
+    app: ${APP_NAME}-backend
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: ${APP_NAME}-backend
+  template:
+    metadata:
+      labels:
+        app: ${APP_NAME}-backend
+    spec:
+      containers:
+      - name: backend
+        image: ${DOCKERHUB_USERNAME}/${APP_NAME}-backend:${IMAGE_TAG}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: ${BACKEND_PORT}
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "${BACKEND_PORT}"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ${APP_NAME}-secrets
+              key: DATABASE_URL
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "15m"
+          limits:
+            memory: "256Mi"
+            cpu: "150m"
+        livenessProbe:
+          httpGet:
+            path: ${HEALTH_CHECK_PATH}
+            port: ${BACKEND_PORT}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: ${HEALTH_CHECK_PATH}
+            port: ${BACKEND_PORT}
+          initialDelaySeconds: 5
+          periodSeconds: 5

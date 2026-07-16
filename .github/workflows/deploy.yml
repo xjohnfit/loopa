@@ -1,0 +1,212 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'kubernetes/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'kubernetes/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---- Catch known-vulnerable dependencies before they're merged ----
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  # ---- Fail fast: don't scan or build an app that doesn't build/pass ----
+  test-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm test --if-present
+      - run: npm run build --if-present
+
+  # ---- Source-level scan: secrets, IaC misconfig, known-vulnerable deps ----
+  trivy-fs-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: 'backend'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          scanners: 'vuln,secret,misconfig'
+          exit-code: '0' # advisory here; findings land in the Security tab instead of a table nobody reads
+
+      - name: Upload results to the Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+
+  # ---- Build & push image (main branch only) ----
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [test-backend, trivy-fs-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.APP_NAME }}-backend
+    outputs:
+      image-tag: ${{ steps.image-tag.outputs.IMAGE_TAG }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Compute image tag
+        id: image-tag
+        run: echo "IMAGE_TAG=main-$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata for backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=raw,value=${{ steps.image-tag.outputs.IMAGE_TAG }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          provenance: true
+          sbom: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.BACKEND_IMAGE }}:buildcache,mode=max
+
+  # ---- Gate: block deploy if the image you're about to ship has a critical, fixable CVE ----
+  scan-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build-and-push]
+    env:
+      BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.APP_NAME }}-backend
+    steps:
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image-tag }}
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+          ignore-unfixed: true
+
+  # ---- Deploy: gated behind a GitHub Environment with required reviewers ----
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-and-push, scan-images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    env:
+      APP_NAME: ${{ vars.APP_NAME }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.0' # pin to match your K3s cluster's Kubernetes version
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Render Kubernetes manifests
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+          BACKEND_PORT: ${{ vars.BACKEND_PORT }}
+          BACKEND_DOMAIN: ${{ vars.BACKEND_DOMAIN }}
+          HEALTH_CHECK_PATH: ${{ vars.HEALTH_CHECK_PATH }}
+          LETSENCRYPT_EMAIL: ${{ vars.LETSENCRYPT_EMAIL }}
+        run: |
+          # Fail fast with a clear message instead of deploying with blank values.
+          : "${APP_NAME:?Set the APP_NAME repository variable}"
+          : "${BACKEND_PORT:?Set the BACKEND_PORT repository variable}"
+          : "${BACKEND_DOMAIN:?Set the BACKEND_DOMAIN repository variable}"
+          : "${HEALTH_CHECK_PATH:?Set the HEALTH_CHECK_PATH repository variable}"
+          : "${LETSENCRYPT_EMAIL:?Set the LETSENCRYPT_EMAIL repository variable}"
+
+          mkdir -p rendered
+          for f in kubernetes/*.yml; do
+            envsubst < "$f" > "rendered/$(basename "$f")"
+          done
+
+      - name: Create or update Kubernetes secrets
+        run: |
+          kubectl create secret generic "$APP_NAME-secrets" \
+            --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f rendered/cluster-issuer-staging.yml
+          kubectl apply -f rendered/cluster-issuer-prod.yml
+          kubectl apply -f rendered/backend-deployment.yml
+          kubectl apply -f rendered/backend-service.yml
+          kubectl apply -f rendered/ingress.yml
+
+      - name: Wait for rollout, roll back automatically on failure
+        run: |
+          kubectl rollout status "deployment/$APP_NAME-backend" --timeout=5m || { kubectl rollout undo "deployment/$APP_NAME-backend"; exit 1; }
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -l "app=$APP_NAME-backend"
+          kubectl get ingress "$APP_NAME-ingress"
