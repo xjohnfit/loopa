@@ -4,7 +4,7 @@ import { apiSlice, useGetTasksQuery, useDeleteTaskMutation } from '../api/apiSli
 import { useAppDispatch } from '../app/hooks';
 import { signOut } from '../features/auth/authSlice';
 import { useTheme } from '../theme';
-import { Card, EmptyState, Fab, Icon, IconButton, Screen } from '../components/ui';
+import { ActionCard, Card, EmptyState, Icon, IconButton, Screen } from '../components/ui';
 
 export default function ManageTasksScreen({ navigation }: any) {
   const theme = useTheme();
@@ -47,6 +47,21 @@ export default function ManageTasksScreen({ navigation }: any) {
         </Pressable>
       </View>
 
+      <View style={styles.actionRow}>
+        <ActionCard
+          icon="tag"
+          label="Add Category"
+          color="#20C997"
+          onPress={() => navigation.navigate('CategoryForm')}
+        />
+        <ActionCard
+          icon="plus"
+          label="Add Task"
+          color={theme.colors.primary}
+          onPress={() => navigation.navigate('TaskForm')}
+        />
+      </View>
+
       <FlatList
         data={tasks ?? []}
         keyExtractor={(item) => item.id}
@@ -57,12 +72,20 @@ export default function ManageTasksScreen({ navigation }: any) {
           <EmptyState
             icon="list"
             title="No tasks yet"
-            subtitle="Tap the + button to add the first task to your daily routine."
+            subtitle="Use the cards above to add a category or your first task."
           />
         }
         renderItem={({ item }) => (
           <Card
-            style={[styles.row, { padding: theme.spacing.lg, marginBottom: theme.spacing.sm }]}
+            style={[
+              styles.row,
+              {
+                padding: theme.spacing.lg,
+                marginBottom: theme.spacing.sm,
+                borderLeftWidth: 4,
+                borderLeftColor: item.category_color ?? 'transparent',
+              },
+            ]}
           >
             <Pressable
               onPress={() => navigation.navigate('TaskForm', { task: item })}
@@ -101,8 +124,6 @@ export default function ManageTasksScreen({ navigation }: any) {
           </Card>
         )}
       />
-
-      <Fab onPress={() => navigation.navigate('TaskForm')} accessibilityLabel="Add task" />
     </Screen>
   );
 }
@@ -116,7 +137,8 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerSpacer: { minWidth: 40, alignItems: 'flex-end' },
-  listContent: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 100 },
+  actionRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginTop: 4 },
+  listContent: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
   row: { flexDirection: 'row', alignItems: 'center' },
   rowPressable: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   timeBadge: { paddingVertical: 4, paddingHorizontal: 8 },

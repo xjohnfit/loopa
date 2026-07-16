@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 export type IconName =
   | 'chevron-left'
@@ -9,7 +9,8 @@ export type IconName =
   | 'trash'
   | 'list'
   | 'calendar-check'
-  | 'check';
+  | 'check'
+  | 'tag';
 
 interface Props {
   name: IconName;
@@ -62,6 +63,13 @@ export default function Icon({ name, size = 24, color, strokeWidth = 2 }: Props)
           <Path d="M6 7L7.5 20H16.5L18 7" {...common} />
           <Line x1={10} y1={11} x2={10} y2={16} {...common} />
           <Line x1={14} y1={11} x2={14} y2={16} {...common} />
+        </>
+      )}
+
+      {name === 'tag' && (
+        <>
+          <Path d="M4 5L14 5L20 11L14 17L4 17Z" {...common} />
+          <Circle cx={8.5} cy={9} r={1.2} fill={color} stroke="none" />
         </>
       )}
 

@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import DailyTasksScreen from '../screens/DailyTasksScreen';
 import ManageTasksScreen from '../screens/ManageTasksScreen';
 import TaskFormScreen from '../screens/TaskFormScreen';
+import CategoryFormScreen from '../screens/CategoryFormScreen';
 import AuthScreen from '../screens/AuthScreen';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { bootstrapAuth } from '../features/auth/authSlice';
@@ -57,6 +58,11 @@ export default function RootNavigator() {
             <Stack.Screen
               name="TaskForm"
               component={TaskFormScreen}
+              options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="CategoryForm"
+              component={CategoryFormScreen}
               options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
             />
           </>

@@ -21,6 +21,8 @@ export default function TaskItem({ task, onToggle }: Props) {
           borderRadius: theme.radii.lg,
           borderWidth: theme.isDark ? 1 : 0,
           borderColor: theme.colors.border,
+          borderLeftWidth: 4,
+          borderLeftColor: task.category_color ?? 'transparent',
           paddingVertical: theme.spacing.md,
           paddingHorizontal: theme.spacing.lg,
           marginBottom: theme.spacing.sm,
@@ -58,6 +60,11 @@ export default function TaskItem({ task, onToggle }: Props) {
         >
           {task.title}
         </Text>
+        {task.category_name && (
+          <Text style={[theme.typography.small, { color: theme.colors.textTertiary, marginTop: 2 }]}>
+            {task.category_name}
+          </Text>
+        )}
       </View>
 
       <View

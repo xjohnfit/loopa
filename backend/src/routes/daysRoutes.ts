@@ -8,10 +8,12 @@ router.get('/:date', async (req, res) => {
   const { date } = req.params; // 'YYYY-MM-DD'
   const result = await pool.query(
     `SELECT t.id, t.title, t.time,
+            t.category_id, c.name AS category_name, c.color AS category_color,
             COALESCE(tc.completed, false) AS completed
      FROM tasks t
      LEFT JOIN task_completions tc
        ON tc.task_id = t.id AND tc.date = $1
+     LEFT JOIN categories c ON c.id = t.category_id
      WHERE t.user_id = $2
        AND t.created_at::date <= $1
        AND (t.archived_at IS NULL OR t.archived_at::date >= $1)

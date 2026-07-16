@@ -3,10 +3,16 @@ import { pool } from '../lib/DBConn';
 
 const router = Router();
 
+const SELECT_WITH_CATEGORY = `
+  SELECT t.*, c.name AS category_name, c.color AS category_color
+  FROM tasks t
+  LEFT JOIN categories c ON c.id = t.category_id
+`;
+
 // GET all tasks (Manage screen)
 router.get('/', async (req, res) => {
   const result = await pool.query(
-    'SELECT * FROM tasks WHERE is_active = true AND user_id = $1 ORDER BY time ASC',
+    `${SELECT_WITH_CATEGORY} WHERE t.is_active = true AND t.user_id = $1 ORDER BY t.time ASC`,
     [req.userId]
   );
   res.json(result.rows);
@@ -14,20 +20,20 @@ router.get('/', async (req, res) => {
 
 // CREATE task
 router.post('/', async (req, res) => {
-  const { title, time } = req.body;
+  const { title, time, category_id } = req.body;
   const result = await pool.query(
-    `INSERT INTO tasks (user_id, title, time) VALUES ($1, $2, $3) RETURNING *`,
-    [req.userId, title, time]
+    `INSERT INTO tasks (user_id, title, time, category_id) VALUES ($1, $2, $3, $4) RETURNING *`,
+    [req.userId, title, time, category_id ?? null]
   );
   res.status(201).json(result.rows[0]);
 });
 
 // UPDATE task
 router.put('/:id', async (req, res) => {
-  const { title, time } = req.body;
+  const { title, time, category_id } = req.body;
   const result = await pool.query(
-    `UPDATE tasks SET title = $1, time = $2 WHERE id = $3 AND user_id = $4 RETURNING *`,
-    [title, time, req.params.id, req.userId]
+    `UPDATE tasks SET title = $1, time = $2, category_id = $3 WHERE id = $4 AND user_id = $5 RETURNING *`,
+    [title, time, category_id ?? null, req.params.id, req.userId]
   );
   if (!result.rows[0]) {
     res.status(404).json({ error: 'Task not found' });

@@ -3,10 +3,19 @@ import type { RootState } from '../app/store';
 
 const BASE_URL = 'https://api.loopa.codewithxjohn.com/api';
 
+export interface Category {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Task {
   id: string;
   title: string;
   time: string;
+  category_id: string | null;
+  category_name: string | null;
+  category_color: string | null;
 }
 
 export interface DayTask extends Task {
@@ -27,7 +36,7 @@ export const apiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ['Tasks', 'Day'],
+  tagTypes: ['Tasks', 'Day', 'Categories'],
   endpoints: (builder) => ({
     register: builder.mutation<AuthResponse, { email: string; password: string }>({
       query: (body) => ({ url: '/auth/register', method: 'POST', body }),
@@ -35,15 +44,23 @@ export const apiSlice = createApi({
     login: builder.mutation<AuthResponse, { email: string; password: string }>({
       query: (body) => ({ url: '/auth/login', method: 'POST', body }),
     }),
+    getCategories: builder.query<Category[], void>({
+      query: () => '/categories',
+      providesTags: ['Categories'],
+    }),
+    createCategory: builder.mutation<Category, { name: string; color: string }>({
+      query: (body) => ({ url: '/categories', method: 'POST', body }),
+      invalidatesTags: ['Categories'],
+    }),
     getTasks: builder.query<Task[], void>({
       query: () => '/tasks',
       providesTags: ['Tasks'],
     }),
-    createTask: builder.mutation<Task, { title: string; time: string }>({
+    createTask: builder.mutation<Task, { title: string; time: string; category_id: string | null }>({
       query: (body) => ({ url: '/tasks', method: 'POST', body }),
       invalidatesTags: ['Tasks', 'Day'],
     }),
-    updateTask: builder.mutation<Task, { id: string; title: string; time: string }>({
+    updateTask: builder.mutation<Task, { id: string; title: string; time: string; category_id: string | null }>({
       query: ({ id, ...body }) => ({ url: `/tasks/${id}`, method: 'PUT', body }),
       invalidatesTags: ['Tasks', 'Day'],
     }),
@@ -69,6 +86,8 @@ export const apiSlice = createApi({
 export const {
   useRegisterMutation,
   useLoginMutation,
+  useGetCategoriesQuery,
+  useCreateCategoryMutation,
   useGetTasksQuery,
   useCreateTaskMutation,
   useUpdateTaskMutation,
