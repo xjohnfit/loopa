@@ -192,6 +192,7 @@ jobs:
         run: |
           kubectl create secret generic "$APP_NAME-secrets" \
             --from-literal=DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --from-literal=JWT_SECRET="${{ secrets.JWT_SECRET }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy to Kubernetes

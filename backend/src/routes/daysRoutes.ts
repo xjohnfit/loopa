@@ -12,10 +12,11 @@ router.get('/:date', async (req, res) => {
      FROM tasks t
      LEFT JOIN task_completions tc
        ON tc.task_id = t.id AND tc.date = $1
-     WHERE t.created_at::date <= $1
+     WHERE t.user_id = $2
+       AND t.created_at::date <= $1
        AND (t.archived_at IS NULL OR t.archived_at::date >= $1)
      ORDER BY t.time ASC`,
-    [date]
+    [date, req.userId]
   );
   res.json(result.rows);
 });
@@ -24,6 +25,13 @@ router.get('/:date', async (req, res) => {
 router.patch('/:date/tasks/:taskId', async (req, res) => {
   const { date, taskId } = req.params;
   const { completed } = req.body;
+
+  const owns = await pool.query('SELECT 1 FROM tasks WHERE id = $1 AND user_id = $2', [taskId, req.userId]);
+  if (owns.rowCount === 0) {
+    res.status(404).json({ error: 'Task not found' });
+    return;
+  }
+
   const result = await pool.query(
     `INSERT INTO task_completions (task_id, date, completed, completed_at)
      VALUES ($1, $2, $3, CASE WHEN $3 THEN now() ELSE NULL END)

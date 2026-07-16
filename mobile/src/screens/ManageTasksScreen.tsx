@@ -1,11 +1,14 @@
 import React from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useGetTasksQuery, useDeleteTaskMutation } from '../api/apiSlice';
+import { apiSlice, useGetTasksQuery, useDeleteTaskMutation } from '../api/apiSlice';
+import { useAppDispatch } from '../app/hooks';
+import { signOut } from '../features/auth/authSlice';
 import { useTheme } from '../theme';
 import { Card, EmptyState, Fab, Icon, IconButton, Screen } from '../components/ui';
 
 export default function ManageTasksScreen({ navigation }: any) {
   const theme = useTheme();
+  const dispatch = useAppDispatch();
   const { data: tasks, isFetching, refetch } = useGetTasksQuery();
   const [deleteTask] = useDeleteTaskMutation();
 
@@ -13,6 +16,20 @@ export default function ManageTasksScreen({ navigation }: any) {
     Alert.alert('Delete task?', `“${title}” will be removed from your routine.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteTask(id) },
+    ]);
+  };
+
+  const confirmLogOut = () => {
+    Alert.alert('Log out?', undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: () => {
+          dispatch(apiSlice.util.resetApiState());
+          dispatch(signOut());
+        },
+      },
     ]);
   };
 
@@ -25,7 +42,9 @@ export default function ManageTasksScreen({ navigation }: any) {
         >
           Manage Tasks
         </Text>
-        <View style={styles.headerSpacer} />
+        <Pressable onPress={confirmLogOut} hitSlop={8} style={styles.headerSpacer}>
+          <Text style={[theme.typography.caption, { color: theme.colors.danger }]}>Log Out</Text>
+        </Pressable>
       </View>
 
       <FlatList
@@ -96,7 +115,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 8,
   },
-  headerSpacer: { width: 40 },
+  headerSpacer: { minWidth: 40, alignItems: 'flex-end' },
   listContent: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 100 },
   row: { flexDirection: 'row', alignItems: 'center' },
   rowPressable: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import type { RootState } from '../app/store';
 
 const BASE_URL = 'https://api.loopa.codewithxjohn.com/api';
 
@@ -12,11 +13,28 @@ export interface DayTask extends Task {
   completed: boolean;
 }
 
+export interface AuthResponse {
+  token: string;
+}
+
 export const apiSlice = createApi({
   reducerPath: 'api',
-  baseQuery: fetchBaseQuery({ baseUrl: BASE_URL }),
+  baseQuery: fetchBaseQuery({
+    baseUrl: BASE_URL,
+    prepareHeaders: (headers, { getState }) => {
+      const token = (getState() as RootState).auth.token;
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+      return headers;
+    },
+  }),
   tagTypes: ['Tasks', 'Day'],
   endpoints: (builder) => ({
+    register: builder.mutation<AuthResponse, { email: string; password: string }>({
+      query: (body) => ({ url: '/auth/register', method: 'POST', body }),
+    }),
+    login: builder.mutation<AuthResponse, { email: string; password: string }>({
+      query: (body) => ({ url: '/auth/login', method: 'POST', body }),
+    }),
     getTasks: builder.query<Task[], void>({
       query: () => '/tasks',
       providesTags: ['Tasks'],
@@ -49,6 +67,8 @@ export const apiSlice = createApi({
 });
 
 export const {
+  useRegisterMutation,
+  useLoginMutation,
   useGetTasksQuery,
   useCreateTaskMutation,
   useUpdateTaskMutation,

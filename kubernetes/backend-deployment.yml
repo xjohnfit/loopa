@@ -35,6 +35,11 @@ spec:
             secretKeyRef:
               name: ${APP_NAME}-secrets
               key: DATABASE_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ${APP_NAME}-secrets
+              key: JWT_SECRET
         resources:
           requests:
             memory: "64Mi"
