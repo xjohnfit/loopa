@@ -2,14 +2,15 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { DayTask } from '../api/apiSlice';
 import { useTheme } from '../theme';
-import { Icon } from './ui';
+import { Icon, IconButton } from './ui';
 
 interface Props {
   task: DayTask;
   onToggle: () => void;
+  onDelete?: () => void;
 }
 
-export default function TaskItem({ task, onToggle }: Props) {
+export default function TaskItem({ task, onToggle, onDelete }: Props) {
   const theme = useTheme();
 
   return (
@@ -77,6 +78,18 @@ export default function TaskItem({ task, onToggle }: Props) {
           {task.time.slice(0, 5)}
         </Text>
       </View>
+
+      {task.recurrence === 'once' && onDelete && (
+        <IconButton
+          name="trash"
+          size={30}
+          iconSize={15}
+          color={theme.colors.danger}
+          backgroundColor={theme.colors.dangerSoft}
+          onPress={onDelete}
+          accessibilityLabel={`Delete ${task.title}`}
+        />
+      )}
     </View>
   );
 }

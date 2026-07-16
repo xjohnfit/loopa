@@ -18,4 +18,10 @@ export async function runMigrations() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_categories_user ON categories(user_id);
   `);
+  await pool.query(`
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence TEXT NOT NULL DEFAULT 'recurring';
+  `);
+  await pool.query(`
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS scheduled_date DATE NULL;
+  `);
 }

@@ -9,6 +9,8 @@ export interface Category {
   color: string;
 }
 
+export type Recurrence = 'recurring' | 'once';
+
 export interface Task {
   id: string;
   title: string;
@@ -16,6 +18,8 @@ export interface Task {
   category_id: string | null;
   category_name: string | null;
   category_color: string | null;
+  recurrence: Recurrence;
+  scheduled_date: string | null;
 }
 
 export interface DayTask extends Task {
@@ -56,11 +60,17 @@ export const apiSlice = createApi({
       query: () => '/tasks',
       providesTags: ['Tasks'],
     }),
-    createTask: builder.mutation<Task, { title: string; time: string; category_id: string | null }>({
+    createTask: builder.mutation<
+      Task,
+      { title: string; time: string; category_id: string | null; recurrence: Recurrence; scheduled_date: string | null }
+    >({
       query: (body) => ({ url: '/tasks', method: 'POST', body }),
       invalidatesTags: ['Tasks', 'Day'],
     }),
-    updateTask: builder.mutation<Task, { id: string; title: string; time: string; category_id: string | null }>({
+    updateTask: builder.mutation<
+      Task,
+      { id: string; title: string; time: string; category_id: string | null; recurrence: Recurrence; scheduled_date: string | null }
+    >({
       query: ({ id, ...body }) => ({ url: `/tasks/${id}`, method: 'PUT', body }),
       invalidatesTags: ['Tasks', 'Day'],
     }),

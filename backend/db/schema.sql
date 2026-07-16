@@ -21,6 +21,8 @@ CREATE TABLE tasks (
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   time TIME NOT NULL,              -- e.g. 07:30:00
+  recurrence TEXT NOT NULL DEFAULT 'recurring', -- 'recurring' | 'once'
+  scheduled_date DATE NULL,        -- set only when recurrence = 'once'
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   archived_at TIMESTAMPTZ NULL

@@ -9,14 +9,19 @@ router.get('/:date', async (req, res) => {
   const result = await pool.query(
     `SELECT t.id, t.title, t.time,
             t.category_id, c.name AS category_name, c.color AS category_color,
+            t.recurrence, t.scheduled_date,
             COALESCE(tc.completed, false) AS completed
      FROM tasks t
      LEFT JOIN task_completions tc
        ON tc.task_id = t.id AND tc.date = $1
      LEFT JOIN categories c ON c.id = t.category_id
      WHERE t.user_id = $2
-       AND t.created_at::date <= $1
-       AND (t.archived_at IS NULL OR t.archived_at::date >= $1)
+       AND (
+         (t.recurrence = 'recurring' AND t.created_at::date <= $1
+           AND (t.archived_at IS NULL OR t.archived_at::date >= $1))
+         OR
+         (t.recurrence = 'once' AND t.scheduled_date = $1 AND t.archived_at IS NULL)
+       )
      ORDER BY t.time ASC`,
     [date, req.userId]
   );

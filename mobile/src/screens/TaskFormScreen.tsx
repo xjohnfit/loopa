@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useCreateTaskMutation, useGetCategoriesQuery, useUpdateTaskMutation } from '../api/apiSlice';
+import { Recurrence, useCreateTaskMutation, useGetCategoriesQuery, useUpdateTaskMutation } from '../api/apiSlice';
 import { useTheme } from '../theme';
+import { toISODate } from '../utils/date';
 import { Card, Icon, IconButton, PrimaryButton, Screen } from '../components/ui';
 
 export default function TaskFormScreen({ route, navigation }: any) {
@@ -13,6 +14,7 @@ export default function TaskFormScreen({ route, navigation }: any) {
     existing ? new Date(`1970-01-01T${existing.time}`) : new Date()
   );
   const [categoryId, setCategoryId] = useState<string | null>(existing?.category_id ?? null);
+  const [recurrence, setRecurrence] = useState<Recurrence>(existing?.recurrence ?? 'recurring');
 
   const { data: categories } = useGetCategoriesQuery();
   const [createTask, { isLoading: isCreating }] = useCreateTaskMutation();
@@ -21,10 +23,14 @@ export default function TaskFormScreen({ route, navigation }: any) {
 
   const handleSave = async () => {
     const timeStr = time.toTimeString().slice(0, 8); // HH:MM:SS
+    // Preserve the original scheduled_date if we're editing an existing
+    // one-off task; only default to today for a freshly-created one.
+    const scheduledDate = recurrence === 'once' ? existing?.scheduled_date ?? toISODate(new Date()) : null;
+
     if (existing) {
-      await updateTask({ id: existing.id, title, time: timeStr, category_id: categoryId });
+      await updateTask({ id: existing.id, title, time: timeStr, category_id: categoryId, recurrence, scheduled_date: scheduledDate });
     } else {
-      await createTask({ title, time: timeStr, category_id: categoryId });
+      await createTask({ title, time: timeStr, category_id: categoryId, recurrence, scheduled_date: scheduledDate });
     }
     navigation.goBack();
   };
@@ -72,6 +78,56 @@ export default function TaskFormScreen({ route, navigation }: any) {
               onChangeText={setTitle}
               autoFocus={!existing}
             />
+
+            <Text
+              style={[
+                theme.typography.caption,
+                { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm },
+              ]}
+            >
+              WHEN
+            </Text>
+            <View style={[styles.segmented, { backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radii.full }]}>
+              <Pressable
+                onPress={() => setRecurrence('recurring')}
+                style={[
+                  styles.segment,
+                  { borderRadius: theme.radii.full },
+                  recurrence === 'recurring' && { backgroundColor: theme.colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    theme.typography.body,
+                    { color: recurrence === 'recurring' ? theme.colors.onPrimary : theme.colors.textSecondary },
+                  ]}
+                >
+                  Recurring
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setRecurrence('once')}
+                style={[
+                  styles.segment,
+                  { borderRadius: theme.radii.full },
+                  recurrence === 'once' && { backgroundColor: theme.colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    theme.typography.body,
+                    { color: recurrence === 'once' ? theme.colors.onPrimary : theme.colors.textSecondary },
+                  ]}
+                >
+                  Just for Today
+                </Text>
+              </Pressable>
+            </View>
+            <Text style={[theme.typography.small, { color: theme.colors.textTertiary, marginTop: theme.spacing.sm }]}>
+              {recurrence === 'recurring'
+                ? 'Shows up on your daily list every day.'
+                : "Shows up today only, then it's gone."}
+            </Text>
 
             <Text
               style={[
@@ -180,6 +236,8 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 8 },
   pickerWrap: { alignItems: 'center' },
   footer: { paddingBottom: 4 },
+  segmented: { flexDirection: 'row', padding: 4, gap: 4 },
+  segment: { flex: 1, alignItems: 'center', paddingVertical: 10 },
   chipRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   chip: {
     flexDirection: 'row',

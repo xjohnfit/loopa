@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { setSelectedDate } from '../features/ui/uiSlice';
-import { useGetDayQuery, useToggleTaskCompletionMutation } from '../api/apiSlice';
+import { useDeleteTaskMutation, useGetDayQuery, useToggleTaskCompletionMutation } from '../api/apiSlice';
 import { addDays, fromISODate, toISODate } from '../utils/date';
 import { useTheme } from '../theme';
 import { Card, EmptyState, IconButton, ProgressRing, Screen } from '../components/ui';
@@ -17,6 +17,14 @@ export default function DailyTasksScreen({ navigation }: any) {
 
   const { data: tasks, isFetching, refetch } = useGetDayQuery(selectedDateISO);
   const [toggle] = useToggleTaskCompletionMutation();
+  const [deleteTask] = useDeleteTaskMutation();
+
+  const confirmDelete = (id: string, title: string) => {
+    Alert.alert('Delete task?', `“${title}” will be removed.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteTask(id) },
+    ]);
+  };
 
   const goToDate = (d: Date) => dispatch(setSelectedDate(toISODate(d)));
   const changeDay = (amount: number) => goToDate(addDays(selectedDate, amount));
@@ -81,6 +89,7 @@ export default function DailyTasksScreen({ navigation }: any) {
             onToggle={() =>
               toggle({ date: selectedDateISO, taskId: item.id, completed: !item.completed })
             }
+            onDelete={() => confirmDelete(item.id, item.title)}
           />
         )}
       />
