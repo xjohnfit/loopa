@@ -10,6 +10,7 @@
     "description": "A calm, focused daily task planner that helps you build routines and never forget the things that matter.",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.xjohnfitcodes.loopa",
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/icon-dark.png",
@@ -43,6 +44,12 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c2bfd30a-888f-4cc1-9cfe-9c56881249c2"
+      }
+    },
+    "owner": "xjohnfit"
   }
 }
