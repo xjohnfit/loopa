@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Recurrence, useCreateTaskMutation, useGetCategoriesQuery, useUpdateTaskMutation } from '../api/apiSlice';
 import { useTheme } from '../theme';
@@ -8,6 +20,7 @@ import { Card, Icon, IconButton, PrimaryButton, Screen } from '../components/ui'
 
 export default function TaskFormScreen({ route, navigation }: any) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const existing = route.params?.task;
   const [title, setTitle] = useState(existing?.title ?? '');
   const [time, setTime] = useState<Date>(
@@ -37,188 +50,190 @@ export default function TaskFormScreen({ route, navigation }: any) {
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <IconButton name="chevron-left" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
-        <Text
-          style={[theme.typography.title, { color: theme.colors.textPrimary, flex: 1, textAlign: 'center' }]}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={insets.top}
         >
-          {existing ? 'Edit Task' : 'New Task'}
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={16}
-      >
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
-          <Card style={{ padding: theme.spacing.lg }}>
+          <View style={styles.header}>
+            <IconButton name="chevron-left" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
             <Text
-              style={[
-                theme.typography.caption,
-                { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm },
-              ]}
+              style={[theme.typography.title, { color: theme.colors.textPrimary, flex: 1, textAlign: 'center' }]}
             >
-              TASK NAME
+              {existing ? 'Edit Task' : 'New Task'}
             </Text>
-            <TextInput
-              style={[
-                theme.typography.body,
-                {
-                  color: theme.colors.textPrimary,
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radii.md,
-                  padding: theme.spacing.md,
-                },
-              ]}
-              placeholder="e.g. Morning run"
-              placeholderTextColor={theme.colors.textTertiary}
-              value={title}
-              onChangeText={setTitle}
-              autoFocus={!existing}
-            />
+            <View style={styles.headerSpacer} />
+          </View>
 
-            <Text
-              style={[
-                theme.typography.caption,
-                { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm },
-              ]}
-            >
-              WHEN
-            </Text>
-            <View style={[styles.segmented, { backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radii.full }]}>
-              <Pressable
-                onPress={() => setRecurrence('recurring')}
+          <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <Card style={{ padding: theme.spacing.lg }}>
+              <Text
                 style={[
-                  styles.segment,
-                  { borderRadius: theme.radii.full },
-                  recurrence === 'recurring' && { backgroundColor: theme.colors.primary },
+                  theme.typography.caption,
+                  { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm },
                 ]}
               >
-                <Text
-                  style={[
-                    theme.typography.body,
-                    { color: recurrence === 'recurring' ? theme.colors.onPrimary : theme.colors.textSecondary },
-                  ]}
-                >
-                  Recurring
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setRecurrence('once')}
+                TASK NAME
+              </Text>
+              <TextInput
                 style={[
-                  styles.segment,
-                  { borderRadius: theme.radii.full },
-                  recurrence === 'once' && { backgroundColor: theme.colors.primary },
+                  theme.typography.body,
+                  {
+                    color: theme.colors.textPrimary,
+                    backgroundColor: theme.colors.surfaceAlt,
+                    borderRadius: theme.radii.md,
+                    padding: theme.spacing.md,
+                  },
                 ]}
-              >
-                <Text
-                  style={[
-                    theme.typography.body,
-                    { color: recurrence === 'once' ? theme.colors.onPrimary : theme.colors.textSecondary },
-                  ]}
-                >
-                  Just for Today
-                </Text>
-              </Pressable>
-            </View>
-            <Text style={[theme.typography.small, { color: theme.colors.textTertiary, marginTop: theme.spacing.sm }]}>
-              {recurrence === 'recurring'
-                ? 'Shows up on your daily list every day.'
-                : "Shows up today only, then it's gone."}
-            </Text>
-
-            <Text
-              style={[
-                theme.typography.caption,
-                { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm },
-              ]}
-            >
-              TIME
-            </Text>
-            <View
-              style={[
-                styles.pickerWrap,
-                Platform.OS === 'ios' && { backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radii.md },
-              ]}
-            >
-              <DateTimePicker
-                value={time}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_, selected) => selected && setTime(selected)}
-                themeVariant={theme.isDark ? 'dark' : 'light'}
+                placeholder="e.g. Morning run"
+                placeholderTextColor={theme.colors.textTertiary}
+                value={title}
+                onChangeText={setTitle}
+                autoFocus={!existing}
               />
-            </View>
 
-            <Text
-              style={[
-                theme.typography.caption,
-                { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm },
-              ]}
-            >
-              CATEGORY
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipRow}>
+              <Text
+                style={[
+                  theme.typography.caption,
+                  { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm },
+                ]}
+              >
+                WHEN
+              </Text>
+              <View style={[styles.segmented, { backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radii.full }]}>
                 <Pressable
-                  onPress={() => setCategoryId(null)}
+                  onPress={() => setRecurrence('recurring')}
                   style={[
-                    styles.chip,
-                    { borderRadius: theme.radii.full, borderColor: theme.colors.border },
-                    categoryId === null && { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.textSecondary },
+                    styles.segment,
+                    { borderRadius: theme.radii.full },
+                    recurrence === 'recurring' && { backgroundColor: theme.colors.primary },
                   ]}
                 >
-                  <Text style={[theme.typography.small, { color: theme.colors.textSecondary }]}>None</Text>
+                  <Text
+                    style={[
+                      theme.typography.body,
+                      { color: recurrence === 'recurring' ? theme.colors.onPrimary : theme.colors.textSecondary },
+                    ]}
+                  >
+                    Recurring
+                  </Text>
                 </Pressable>
-
-                {(categories ?? []).map((category) => {
-                  const selected = categoryId === category.id;
-                  return (
-                    <Pressable
-                      key={category.id}
-                      onPress={() => setCategoryId(category.id)}
-                      style={[
-                        styles.chip,
-                        { borderColor: category.color, borderRadius: theme.radii.full },
-                        selected && { backgroundColor: category.color },
-                      ]}
-                    >
-                      <View style={[styles.chipDot, { backgroundColor: selected ? '#FFFFFF' : category.color }]} />
-                      <Text
-                        style={[
-                          theme.typography.small,
-                          { color: selected ? '#FFFFFF' : theme.colors.textPrimary },
-                        ]}
-                      >
-                        {category.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-
                 <Pressable
-                  onPress={() => navigation.navigate('CategoryForm')}
-                  style={[styles.chip, { borderRadius: theme.radii.full, borderColor: theme.colors.border, borderStyle: 'dashed' }]}
+                  onPress={() => setRecurrence('once')}
+                  style={[
+                    styles.segment,
+                    { borderRadius: theme.radii.full },
+                    recurrence === 'once' && { backgroundColor: theme.colors.primary },
+                  ]}
                 >
-                  <Icon name="plus" size={12} color={theme.colors.textSecondary} strokeWidth={2.5} />
-                  <Text style={[theme.typography.small, { color: theme.colors.textSecondary }]}>New</Text>
+                  <Text
+                    style={[
+                      theme.typography.body,
+                      { color: recurrence === 'once' ? theme.colors.onPrimary : theme.colors.textSecondary },
+                    ]}
+                  >
+                    Just for Today
+                  </Text>
                 </Pressable>
               </View>
-            </ScrollView>
-          </Card>
-        </ScrollView>
+              <Text style={[theme.typography.small, { color: theme.colors.textTertiary, marginTop: theme.spacing.sm }]}>
+                {recurrence === 'recurring'
+                  ? 'Shows up on your daily list every day.'
+                  : "Shows up today only, then it's gone."}
+              </Text>
 
-        <View style={[styles.footer, { padding: theme.spacing.lg }]}>
-          <PrimaryButton
-            title={existing ? 'Save Changes' : 'Add Task'}
-            onPress={handleSave}
-            disabled={!title.trim()}
-            loading={saving}
-          />
-        </View>
-      </KeyboardAvoidingView>
+              <Text
+                style={[
+                  theme.typography.caption,
+                  { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm },
+                ]}
+              >
+                TIME
+              </Text>
+              <View
+                style={[
+                  styles.pickerWrap,
+                  Platform.OS === 'ios' && { backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radii.md },
+                ]}
+              >
+                <DateTimePicker
+                  value={time}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(_, selected) => selected && setTime(selected)}
+                  themeVariant={theme.isDark ? 'dark' : 'light'}
+                />
+              </View>
+
+              <Text
+                style={[
+                  theme.typography.caption,
+                  { color: theme.colors.textSecondary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm },
+                ]}
+              >
+                CATEGORY
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.chipRow}>
+                  <Pressable
+                    onPress={() => setCategoryId(null)}
+                    style={[
+                      styles.chip,
+                      { borderRadius: theme.radii.full, borderColor: theme.colors.border },
+                      categoryId === null && { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.textSecondary },
+                    ]}
+                  >
+                    <Text style={[theme.typography.small, { color: theme.colors.textSecondary }]}>None</Text>
+                  </Pressable>
+
+                  {(categories ?? []).map((category) => {
+                    const selected = categoryId === category.id;
+                    return (
+                      <Pressable
+                        key={category.id}
+                        onPress={() => setCategoryId(category.id)}
+                        style={[
+                          styles.chip,
+                          { borderColor: category.color, borderRadius: theme.radii.full },
+                          selected && { backgroundColor: category.color },
+                        ]}
+                      >
+                        <View style={[styles.chipDot, { backgroundColor: selected ? '#FFFFFF' : category.color }]} />
+                        <Text
+                          style={[
+                            theme.typography.small,
+                            { color: selected ? '#FFFFFF' : theme.colors.textPrimary },
+                          ]}
+                        >
+                          {category.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+
+                  <Pressable
+                    onPress={() => navigation.navigate('CategoryForm')}
+                    style={[styles.chip, { borderRadius: theme.radii.full, borderColor: theme.colors.border, borderStyle: 'dashed' }]}
+                  >
+                    <Icon name="plus" size={12} color={theme.colors.textSecondary} strokeWidth={2.5} />
+                    <Text style={[theme.typography.small, { color: theme.colors.textSecondary }]}>New</Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </Card>
+          </ScrollView>
+
+          <View style={[styles.footer, { padding: theme.spacing.lg }]}>
+            <PrimaryButton
+              title={existing ? 'Save Changes' : 'Add Task'}
+              onPress={handleSave}
+              disabled={!title.trim()}
+              loading={saving}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </Screen>
   );
 }
