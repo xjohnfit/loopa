@@ -27,6 +27,7 @@ export default function TaskFormScreen({ route, navigation }: any) {
     existing ? new Date(`1970-01-01T${existing.time}`) : new Date()
   );
   const [categoryId, setCategoryId] = useState<string | null>(existing?.category_id ?? null);
+  const canSave = title.trim().length > 0 && categoryId !== null;
   const [recurrence, setRecurrence] = useState<Recurrence>(existing?.recurrence ?? 'recurring');
 
   const { data: categories } = useGetCategoriesQuery();
@@ -35,6 +36,7 @@ export default function TaskFormScreen({ route, navigation }: any) {
   const saving = isCreating || isUpdating;
 
   const handleSave = async () => {
+    if (!categoryId) return; // guarded by canSave, but keeps TS happy below
     const timeStr = time.toTimeString().slice(0, 8); // HH:MM:SS
     // Preserve the original scheduled_date if we're editing an existing
     // one-off task; only default to today for a freshly-created one.
@@ -180,17 +182,6 @@ export default function TaskFormScreen({ route, navigation }: any) {
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.chipRow}>
-                  <Pressable
-                    onPress={() => setCategoryId(null)}
-                    style={[
-                      styles.chip,
-                      { borderRadius: theme.radii.full, borderColor: theme.colors.border },
-                      categoryId === null && { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.textSecondary },
-                    ]}
-                  >
-                    <Text style={[theme.typography.small, { color: theme.colors.textSecondary }]}>None</Text>
-                  </Pressable>
-
                   {(categories ?? []).map((category) => {
                     const selected = categoryId === category.id;
                     return (
@@ -225,12 +216,17 @@ export default function TaskFormScreen({ route, navigation }: any) {
                   </Pressable>
                 </View>
               </ScrollView>
+              {categories?.length === 0 && (
+                <Text style={[theme.typography.small, { color: theme.colors.textTertiary, marginTop: theme.spacing.sm }]}>
+                  Every task needs a category — tap + to create your first one.
+                </Text>
+              )}
             </Card>
 
             <PrimaryButton
               title={existing ? 'Save Changes' : 'Add Task'}
               onPress={handleSave}
-              disabled={!title.trim()}
+              disabled={!canSave}
               loading={saving}
               style={{ marginTop: theme.spacing.xl }}
             />

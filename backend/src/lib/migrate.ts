@@ -24,4 +24,15 @@ export async function runMigrations() {
   await pool.query(`
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS scheduled_date DATE NULL;
   `);
+
+  // Category is now mandatory: every task must belong to one. Any task left
+  // over from before this requirement (no category assigned) is dropped
+  // rather than silently bucketed into a synthetic "uncategorized" group.
+  await pool.query(`DELETE FROM tasks WHERE category_id IS NULL;`);
+  await pool.query(`ALTER TABLE tasks ALTER COLUMN category_id SET NOT NULL;`);
+  await pool.query(`ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_category_id_fkey;`);
+  await pool.query(`
+    ALTER TABLE tasks ADD CONSTRAINT tasks_category_id_fkey
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE;
+  `);
 }

@@ -1,16 +1,21 @@
-import React from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { apiSlice, useGetTasksQuery, useDeleteTaskMutation } from '../api/apiSlice';
+import React, { useMemo } from 'react';
+import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { apiSlice, useGetTasksQuery, useGetCategoriesQuery, useDeleteTaskMutation } from '../api/apiSlice';
 import { useAppDispatch } from '../app/hooks';
 import { signOut } from '../features/auth/authSlice';
 import { useTheme } from '../theme';
+import { groupTasksByCategory } from '../utils/taskGrouping';
 import { ActionCard, Card, EmptyState, Icon, IconButton, Screen } from '../components/ui';
+import CategorySectionHeader from '../components/CategorySectionHeader';
 
 export default function ManageTasksScreen({ navigation }: any) {
   const theme = useTheme();
   const dispatch = useAppDispatch();
   const { data: tasks, isFetching, refetch } = useGetTasksQuery();
+  const { data: categories } = useGetCategoriesQuery();
   const [deleteTask] = useDeleteTaskMutation();
+
+  const sections = useMemo(() => groupTasksByCategory(tasks ?? [], categories), [tasks, categories]);
 
   const confirmDelete = (id: string, title: string) => {
     Alert.alert('Delete task?', `“${title}” will be removed from your routine.`, [
@@ -62,11 +67,12 @@ export default function ManageTasksScreen({ navigation }: any) {
         />
       </View>
 
-      <FlatList
-        data={tasks ?? []}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         refreshing={isFetching}
         onRefresh={refetch}
+        stickySectionHeadersEnabled
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <EmptyState
@@ -75,6 +81,9 @@ export default function ManageTasksScreen({ navigation }: any) {
             subtitle="Use the cards above to add a category or your first task."
           />
         }
+        renderSectionHeader={({ section }) => (
+          <CategorySectionHeader title={section.title} color={section.color} count={section.data.length} />
+        )}
         renderItem={({ item }) => (
           <Card
             style={[

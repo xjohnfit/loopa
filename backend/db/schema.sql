@@ -18,7 +18,7 @@ CREATE TABLE categories (
 CREATE TABLE tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+  category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   time TIME NOT NULL,              -- e.g. 07:30:00
   recurrence TEXT NOT NULL DEFAULT 'recurring', -- 'recurring' | 'once'

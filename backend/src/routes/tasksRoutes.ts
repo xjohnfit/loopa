@@ -33,6 +33,10 @@ router.get('/', async (req, res) => {
 // CREATE task
 router.post('/', async (req, res) => {
   const { title, time, category_id } = req.body;
+  if (typeof category_id !== 'string' || !category_id) {
+    res.status(400).json({ error: 'category_id is required' });
+    return;
+  }
   const parsed = parseRecurrence(req.body);
   if (!parsed) {
     res.status(400).json({ error: 'scheduled_date is required for a one-off task' });
@@ -41,7 +45,7 @@ router.post('/', async (req, res) => {
   const result = await pool.query(
     `INSERT INTO tasks (user_id, title, time, category_id, recurrence, scheduled_date)
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [req.userId, title, time, category_id ?? null, parsed.recurrence, parsed.scheduled_date]
+    [req.userId, title, time, category_id, parsed.recurrence, parsed.scheduled_date]
   );
   res.status(201).json(result.rows[0]);
 });
@@ -49,6 +53,10 @@ router.post('/', async (req, res) => {
 // UPDATE task
 router.put('/:id', async (req, res) => {
   const { title, time, category_id } = req.body;
+  if (typeof category_id !== 'string' || !category_id) {
+    res.status(400).json({ error: 'category_id is required' });
+    return;
+  }
   const parsed = parseRecurrence(req.body);
   if (!parsed) {
     res.status(400).json({ error: 'scheduled_date is required for a one-off task' });
@@ -57,7 +65,7 @@ router.put('/:id', async (req, res) => {
   const result = await pool.query(
     `UPDATE tasks SET title = $1, time = $2, category_id = $3, recurrence = $4, scheduled_date = $5
      WHERE id = $6 AND user_id = $7 RETURNING *`,
-    [title, time, category_id ?? null, parsed.recurrence, parsed.scheduled_date, req.params.id, req.userId]
+    [title, time, category_id, parsed.recurrence, parsed.scheduled_date, req.params.id, req.userId]
   );
   if (!result.rows[0]) {
     res.status(404).json({ error: 'Task not found' });

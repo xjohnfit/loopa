@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
-import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { Alert, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { setSelectedDate } from '../features/ui/uiSlice';
-import { useDeleteTaskMutation, useGetDayQuery, useToggleTaskCompletionMutation } from '../api/apiSlice';
+import { useDeleteTaskMutation, useGetCategoriesQuery, useGetDayQuery, useToggleTaskCompletionMutation } from '../api/apiSlice';
 import { addDays, fromISODate, toISODate } from '../utils/date';
+import { groupTasksByRecurrenceAndCategory } from '../utils/taskGrouping';
 import { useTheme } from '../theme';
 import { Card, EmptyState, IconButton, ProgressRing, Screen } from '../components/ui';
 import DateHeader from '../components/DateHeader';
 import TaskItem from '../components/TaskItem';
+import CategorySectionHeader from '../components/CategorySectionHeader';
 
 export default function DailyTasksScreen({ navigation }: any) {
   const theme = useTheme();
@@ -16,8 +18,14 @@ export default function DailyTasksScreen({ navigation }: any) {
   const selectedDate = useMemo(() => fromISODate(selectedDateISO), [selectedDateISO]);
 
   const { data: tasks, isFetching, refetch } = useGetDayQuery(selectedDateISO);
+  const { data: categories } = useGetCategoriesQuery();
   const [toggle] = useToggleTaskCompletionMutation();
   const [deleteTask] = useDeleteTaskMutation();
+
+  const sections = useMemo(
+    () => groupTasksByRecurrenceAndCategory(tasks ?? [], categories),
+    [tasks, categories]
+  );
 
   const confirmDelete = (id: string, title: string) => {
     Alert.alert('Delete task?', `“${title}” will be removed.`, [
@@ -70,11 +78,12 @@ export default function DailyTasksScreen({ navigation }: any) {
         </Card>
       )}
 
-      <FlatList
-        data={tasks ?? []}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         refreshing={isFetching}
         onRefresh={refetch}
+        stickySectionHeadersEnabled
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <EmptyState
@@ -83,6 +92,14 @@ export default function DailyTasksScreen({ navigation }: any) {
             subtitle="Add a task from Manage Tasks to start building your daily routine."
           />
         }
+        renderSectionHeader={({ section }) => (
+          <CategorySectionHeader
+            title={section.title}
+            color={section.color}
+            count={section.data.length}
+            groupLabel={section.groupLabel}
+          />
+        )}
         renderItem={({ item }) => (
           <TaskItem
             task={item}
