@@ -66,7 +66,11 @@ export default function TaskFormScreen({ route, navigation }: any) {
             <View style={styles.headerSpacer} />
           </View>
 
-          <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + theme.spacing.xl }]}
+            keyboardShouldPersistTaps="handled"
+          >
             <Card style={{ padding: theme.spacing.lg }}>
               <Text
                 style={[
@@ -222,16 +226,15 @@ export default function TaskFormScreen({ route, navigation }: any) {
                 </View>
               </ScrollView>
             </Card>
-          </ScrollView>
 
-          <View style={[styles.footer, { padding: theme.spacing.lg }]}>
             <PrimaryButton
               title={existing ? 'Save Changes' : 'Add Task'}
               onPress={handleSave}
               disabled={!title.trim()}
               loading={saving}
+              style={{ marginTop: theme.spacing.xl }}
             />
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
     </Screen>
@@ -250,7 +253,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 8 },
   pickerWrap: { alignItems: 'center' },
-  footer: { paddingBottom: 4 },
   segmented: { flexDirection: 'row', padding: 4, gap: 4 },
   segment: { flex: 1, alignItems: 'center', paddingVertical: 10 },
   chipRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },

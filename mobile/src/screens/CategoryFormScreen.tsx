@@ -47,7 +47,11 @@ export default function CategoryFormScreen({ navigation }: any) {
             <View style={styles.headerSpacer} />
           </View>
 
-          <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + theme.spacing.xl }]}
+            keyboardShouldPersistTaps="handled"
+          >
             <Card style={{ padding: theme.spacing.lg }}>
               <Text
                 style={[theme.typography.caption, { color: theme.colors.textSecondary, marginBottom: theme.spacing.sm }]}
@@ -100,11 +104,15 @@ export default function CategoryFormScreen({ navigation }: any) {
                 })}
               </View>
             </Card>
-          </ScrollView>
 
-          <View style={[styles.footer, { padding: theme.spacing.lg }]}>
-            <PrimaryButton title="Add Category" onPress={handleSave} disabled={!name.trim()} loading={isLoading} />
-          </View>
+            <PrimaryButton
+              title="Add Category"
+              onPress={handleSave}
+              disabled={!name.trim()}
+              loading={isLoading}
+              style={{ marginTop: theme.spacing.xl }}
+            />
+          </ScrollView>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
     </Screen>
@@ -124,5 +132,4 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 8 },
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   swatch: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  footer: { paddingBottom: 4 },
 });
