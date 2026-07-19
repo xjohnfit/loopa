@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -14,6 +15,9 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+
+app.get('/privacy', (_req, res) => res.sendFile(path.join(__dirname, '../public/privacy.html')));
+app.get('/support', (_req, res) => res.sendFile(path.join(__dirname, '../public/support.html')));
 
 app.use('/api/auth', authRouter);
 app.use('/api/tasks', requireAuth, tasksRouter);
