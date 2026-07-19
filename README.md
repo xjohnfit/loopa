@@ -21,22 +21,22 @@
 
 ## Why Loopa
 
-Most to-do apps make you choose between "simple" and "actually useful." Loopa doesn't. It separates the two kinds of things that live on a real daily list — the routine you repeat every day, and the one-off thing you just need to remember *today* — instead of dumping both into one undifferentiated pile that gets messier the longer you use the app. Add color-coded categories on top, and your day reads at a glance instead of as a wall of text.
+Most to-do apps make you choose between "simple" and "actually useful." Loopa doesn't. It separates the two kinds of things that live on a real daily list — the routine you repeat every day, and the one-off thing you just need to remember *today* — instead of dumping both into one undifferentiated pile that gets messier the longer you use the app. Every task belongs to a color-coded category, and both the daily view and your task list are grouped by it automatically, so your day reads at a glance instead of as a wall of text.
 
 It's not a tutorial project pretending to be a real app. It's a real app: email/password accounts with properly isolated user data, a production Postgres database, a Dockerized API running on a real Kubernetes cluster behind HTTPS, a CI/CD pipeline that tests, security-scans, and gates every deploy behind manual approval — and a native iOS build shipped through EAS. Everything below is what's actually running, not what's planned.
 
 ## Features
 
 **Daily view that respects your time**
-- A week-strip date picker plus a live progress ring — see how much of the day is done without counting
+- A week-strip date picker that expands into a full month calendar with one tap — jump to any day directly instead of paging through a chevron thirty times, plus a live progress ring so you can see how much of the day is done without counting
 - Pull-to-refresh, smooth day-to-day navigation, a "jump to today" shortcut the moment you're not on it
 
 **Two kinds of tasks, because not everything repeats**
-- **Recurring** tasks show up on your list every day until you archive them — your actual routine
+- **Recurring** tasks show up on your list every day until you archive them — your actual routine, and the daily view always shows this group first
 - **One-off ("just for today")** tasks are scheduled for a single date and disappear after — for the things that don't belong in your routine but still need doing *today*. They're only ever visible, and only ever deletable, on the day they're for.
 
-**Color-coded categories**
-- Create a category with a name and a color in seconds, tag any task with it, and every task row picks up a colored accent — Health, Work, Home, whatever your day actually looks like
+**Color-coded categories, and mandatory for a reason**
+- Every task belongs to a category — no junk-drawer "uncategorized" pile to ignore. Create one with a name and a color in seconds, and both the daily view and your task list group everything by it automatically (recurring tasks grouped first, then just-for-today, category by category within each)
 
 **Real accounts, not a shared notepad**
 - Email/password auth (bcrypt + JWT), tokens held in the device's secure storage, every single query server-side scoped to the signed-in user — your data is yours, full stop
@@ -81,10 +81,12 @@ Four tables, all scoped by `user_id`:
 
 - **`users`** — email + bcrypt password hash
 - **`categories`** — a user-owned `name` + `color`
-- **`tasks`** — the core entity. `recurrence` is either `'recurring'` (a template, shown every day from creation until archived) or `'once'` (pinned to a single `scheduled_date`). Optionally tagged with a `category_id`.
+- **`tasks`** — the core entity. `recurrence` is either `'recurring'` (a template, shown every day from creation until archived) or `'once'` (pinned to a single `scheduled_date`). `category_id` is `NOT NULL` — every task belongs to exactly one category, no exceptions.
 - **`task_completions`** — one row per task per date, created only when a task is actually checked off — so "did I do this on March 3rd" is a real, queryable fact, not something reconstructed after the fact.
 
 The rule that makes recurring vs. one-off actually work is one query: the daily-view endpoint returns a task if it's recurring *or* if its `scheduled_date` matches the day being viewed. That's it — a one-off task is structurally incapable of showing up on any day but its own, which also means it's structurally incapable of being deleted from anywhere else.
+
+Both the daily view and the task list render as a grouped `SectionList` rather than a flat list: recurring tasks first, then one-off ones, and within each, grouped by category — so the display mirrors the two rules above instead of just sorting by time.
 
 ### Authentication
 
@@ -101,6 +103,7 @@ loopa/
   backend/         Express API — auth, tasks, categories, days
   mobile/          Expo / React Native app
   kubernetes/      Deployment manifests (templated, rendered per-deploy)
+  branding/        Transparent-background mark export for external/portfolio use
   .github/workflows/  CI/CD pipeline
 ```
 

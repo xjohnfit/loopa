@@ -18,12 +18,12 @@ iOS build/submit: EAS Build → App Store Connect / TestFlight
 ```
 
 - **Users** authenticate with email/password (bcrypt + JWT). Every table below is scoped by `user_id` — there is no shared data between accounts.
-- **Categories** are user-defined, color-coded labels a task can optionally belong to.
+- **Categories** are user-defined, color-coded labels. Every task must belong to exactly one — `category_id` is `NOT NULL`, there is no "uncategorized" state.
 - **Tasks** are either:
   - `recurring` — the original model: a template shown on every day from its creation date forward, until archived.
   - `once` — a one-off task pinned to a single `scheduled_date`. It only ever appears (and is only ever deletable) on that specific day, and never appears in the recurring "Manage Tasks" list.
 - **Task Completions** = one row per task per date, created/updated only when a user checks a task off on a given day. Applies the same way to both recurring and one-off tasks.
-- The "Daily Tasks" screen always asks the API: *"give me every task active on date X (recurring or scheduled for X), with its completion status for X."*
+- The "Daily Tasks" screen always asks the API: *"give me every task active on date X (recurring or scheduled for X), with its completion status for X."* Both it and "Manage Tasks" render the result grouped: recurring first, then one-off, category by category within each — never a flat list.
 
 ---
 
@@ -64,12 +64,14 @@ loopa/
       features/
         auth/{authSlice.ts,tokenStorage.ts}
         ui/uiSlice.ts        # selected date
-      theme/                 # colors, spacing, typography, radii, shadows
+      theme/                 # colors, spacing, typography, radii, shadows, categoryColors
       components/
         ui/                  # Screen, Card, IconButton, PrimaryButton,
                               # ProgressRing, EmptyState, Fab, ActionCard, Icon
-        DateHeader.tsx
+        DateHeader.tsx        # week strip that expands into MonthCalendar
+        MonthCalendar.tsx
         TaskItem.tsx
+        CategorySectionHeader.tsx
       screens/
         AuthScreen.tsx
         DailyTasksScreen.tsx
@@ -77,12 +79,14 @@ loopa/
         TaskFormScreen.tsx
         CategoryFormScreen.tsx
       navigation/RootNavigator.tsx
-      utils/date.ts
+      utils/{date.ts,taskGrouping.ts}
   kubernetes/
     backend-deployment.yml
     backend-service.yml
     cluster-issuer-{prod,staging}.yml
     ingress.yml
+  branding/
+    loopa-mark-1024-transparent.png  # for portfolio/external use, not used by the app
   .github/workflows/deploy.yml
 ```
 
@@ -115,7 +119,7 @@ CREATE TABLE categories (
 CREATE TABLE tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+  category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   time TIME NOT NULL,              -- e.g. 07:30:00
   recurrence TEXT NOT NULL DEFAULT 'recurring', -- 'recurring' | 'once'
@@ -223,8 +227,21 @@ export async function runMigrations() {
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence TEXT NOT NULL DEFAULT 'recurring';`);
   await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS scheduled_date DATE NULL;`);
   // ...indexes
+
+  // Category later became mandatory. Anything left over from before that
+  // requirement (no category assigned) is dropped, not bucketed into a
+  // synthetic "uncategorized" group — then the constraint is tightened.
+  await pool.query(`DELETE FROM tasks WHERE category_id IS NULL;`);
+  await pool.query(`ALTER TABLE tasks ALTER COLUMN category_id SET NOT NULL;`);
+  await pool.query(`ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_category_id_fkey;`);
+  await pool.query(`
+    ALTER TABLE tasks ADD CONSTRAINT tasks_category_id_fkey
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE;
+  `);
 }
 ```
+
+Each statement runs on every boot — additive DDL like `ADD COLUMN IF NOT EXISTS` is a no-op once applied, `DELETE ... WHERE category_id IS NULL` matches zero rows once the backlog is clear, and re-applying `SET NOT NULL` to an already-`NOT NULL` column is harmless. Nothing here needs a "has this already run" check.
 
 ```typescript
 // index.ts
@@ -254,6 +271,15 @@ router.post('/', async (req, res) => {
 ```
 
 `tasksRoutes.ts` and `daysRoutes.ts` both `LEFT JOIN categories` so every task response includes `category_id`, `category_name`, `category_color`.
+
+Category is mandatory on a task — `POST`/`PUT /api/tasks` reject a missing or empty `category_id` with `400` before ever touching the recurrence validation below:
+
+```typescript
+if (typeof category_id !== 'string' || !category_id) {
+  res.status(400).json({ error: 'category_id is required' });
+  return;
+}
+```
 
 ### 3.5 Recurring vs. one-off tasks — `routes/tasksRoutes.ts`, `routes/daysRoutes.ts`
 
@@ -362,17 +388,61 @@ export const signOut = createAsyncThunk('auth/signOut', async () => { await dele
 
 - **Manage Tasks** opens with two color-coded `ActionCard`s — teal "Add Category", violet "Add Task" — instead of a FAB.
 - **CategoryFormScreen** — name input + an 8-color swatch grid (`theme/categoryColors.ts`).
-- **TaskFormScreen** — category picker (horizontal chips, color dot + name, "+ New" shortcut into `CategoryForm`), and a "Recurring" / "Just for Today" segmented control. A one-off task defaults its `scheduled_date` to today (or preserves the original date if editing one).
+- **TaskFormScreen** — category is mandatory: the chip picker has no "None" option, Save stays disabled until one is picked (`canSave = title.trim().length > 0 && categoryId !== null`), and a hint appears in place of the chip row if the user has no categories yet ("tap + to create your first one"). A "+ New" chip shortcuts into `CategoryForm` and back. Alongside it, a "Recurring" / "Just for Today" segmented control — a one-off task defaults its `scheduled_date` to today (or preserves the original date if editing one).
 - Task rows (`TaskItem.tsx` on the daily list, and the row markup in `ManageTasksScreen.tsx`) show a 4px colored left-edge accent matching the task's category.
 - `TaskItem` shows a delete button only when `task.recurrence === 'once'` — recurring tasks are still only deletable from Manage Tasks, keeping that screen as the single place that manages the recurring routine.
 
-### 4.5 App icon, splash screen, EAS
+### 4.5 Grouped task lists — `utils/taskGrouping.ts`, `components/CategorySectionHeader.tsx`
 
-- `assets/` holds the generated icon (light/dark/tinted iOS variants), Android adaptive icon layers (foreground/background/monochrome), splash mark, and favicon — all produced by `scripts/generate-assets.py` (Pillow), so the brand mark can be regenerated if the palette ever changes.
+Both Daily Tasks and Manage Tasks render as a `SectionList`, not a flat `FlatList` — tasks are grouped by category, and on the daily view, split into the recurring routine and one-off tasks first:
+
+```typescript
+// Manage Tasks: everything there is already recurring, so category alone is enough
+export function groupTasksByCategory<T extends CategorizedTask>(tasks: T[], categories?: Category[]) {
+  return groupByCategory(tasks, categories ?? [], 'all', null);
+}
+
+// Daily view: recurring is the core of the app, shown first; category-grouped within each
+export function groupTasksByRecurrenceAndCategory<T extends CategorizedTask>(tasks: T[], categories?: Category[]) {
+  const cats = categories ?? [];
+  const recurring = tasks.filter((t) => t.recurrence === 'recurring');
+  const once = tasks.filter((t) => t.recurrence === 'once');
+  return [
+    ...groupByCategory(recurring, cats, 'recurring', 'RECURRING'),
+    ...groupByCategory(once, cats, 'once', 'JUST FOR TODAY'),
+  ];
+}
+```
+
+Categories are ordered by creation order (the order `GET /api/categories` returns them in); within each category, tasks sort by time. Each resulting section carries an optional `groupLabel` — only set on the *first* category section of a recurrence group — so `CategorySectionHeader` can render "RECURRING" / "JUST FOR TODAY" as a one-time divider above the relevant category headers instead of repeating it on every section, giving a two-level look (group → category) out of `SectionList`'s single level of sections.
+
+### 4.6 Expandable month calendar — `components/DateHeader.tsx`, `components/MonthCalendar.tsx`
+
+The daily view's date picker is normally a 7-day week strip (unchanged), but tapping the date title expands it into a full `MonthCalendar` grid — jumping back a month used to mean tapping the day-back chevron dozens of times. `utils/date.ts` gained the supporting helpers:
+
+```typescript
+export const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+
+export const addMonths = (d: Date, amount: number) => {
+  const copy = new Date(d);
+  copy.setDate(1); // pin to the 1st first so e.g. Jan 31 + 1 month can't overflow into March
+  copy.setMonth(copy.getMonth() + amount);
+  return copy;
+};
+
+/** A 7-wide grid of full weeks (Sun-Sat) covering every day in the given month. */
+export const getMonthMatrix = (month: Date): Date[][] => { /* ... */ };
+```
+
+`DateHeader` tracks its own `expanded` boolean and `calendarMonth` (synced to the selected date's month only when opened, so browsing to a different month doesn't get reset out from under you); tapping a day in the grid selects it and collapses back to the week strip. Days outside the displayed month render dimmed and non-interactive rather than being clickable to jump between months. Verified against Feb 2026 (starts on a Sunday, exactly 4 weeks, no padding), Feb 2024 (leap year), and a December→January month-boundary case.
+
+### 4.7 App icon, splash screen, EAS
+
+- `assets/` holds the generated icon (light/dark/tinted iOS variants), Android adaptive icon layers (foreground/background/monochrome), splash mark, and favicon — all produced by `scripts/generate-assets.py` (Pillow), so the brand mark can be regenerated if the palette ever changes. The mark itself is a geometric "L" monogram whose foot kicks up into a checkmark flick — a Loopa letter-mark and a checkmark at once. `branding/loopa-mark-1024-transparent.png` is the same mark exported transparent and full-bleed (no OS icon safe-zone padding) for use outside the app — READMEs, portfolios, anywhere the actual `.ipa`/adaptive-icon constraints don't apply.
 - `app.json` configures `expo-splash-screen` (solid brand color + white mark, separate light/dark variants) and `ios.bundleIdentifier: com.xjohnfitcodes.loopa`.
 - `eas.json` defines `development` / `preview` / `production` build profiles. The EAS project is linked via `extra.eas.projectId` (`eas init`).
 
-### 4.6 Local dev
+### 4.8 Local dev
 
 ```bash
 cd mobile
@@ -436,8 +506,9 @@ Any change to `mobile/` needs a new EAS build to reach a device — unlike the b
 ## 7. Natural next steps
 
 - ~~**Auth**~~ — done: email/password, JWT, all data scoped by `user_id`.
-- ~~**Categories**~~ — done: color-coded, user-scoped.
-- ~~**One-off tasks**~~ — done: "just for today" tasks alongside the recurring routine.
+- ~~**Categories**~~ — done: color-coded, user-scoped, mandatory on every task, and used to group both the daily view and Manage Tasks.
+- ~~**One-off tasks**~~ — done: "just for today" tasks alongside the recurring routine, shown as its own group after the recurring one.
+- ~~**Month calendar**~~ — done: the week strip expands into a full month grid for faster date jumping.
 - **Editing/deleting categories** — currently create + list only; no rename/delete/reassign flow yet.
 - **Streaks/stats** — aggregate `task_completions` by task to show completion %.
 - **Reordering tasks** — add a `sort_order` int column to `tasks`.
