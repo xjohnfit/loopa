@@ -37,3 +37,6 @@ backend/npm-debug.*
 # --- kubernetes (rendered manifests are a CI-only artifact) ---
 kubernetes/rendered/
 rendered/
+
+# --- App Store review account credentials (never commit, repo is public) ---
+appstore/REVIEW-CREDENTIALS.local.md

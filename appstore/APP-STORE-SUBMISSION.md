@@ -152,9 +152,16 @@ partners track users across apps/websites.
 
 1. Deploy the `/privacy` and `/support` backend routes (see §7 above).
 2. Upload the 8 screenshots from `appstore/screenshots/` to the corresponding
-   device-size slots in App Store Connect → your app → App Store tab.
+   device-size slots in App Store Connect → your app → App Store tab. Make sure
+   the 1320×2868 shots go in the **6.9" Display** slot specifically — App Store
+   Connect also shows a legacy 6.5"/6.7" slot that expects older sizes
+   (1242×2688 / 1284×2778) and will reject the 6.9" files if dropped there.
 3. Paste in the copy from sections 2–6 above.
 4. Fill in the Age Rating questionnaire (§9) and the App Privacy questions (§10)
    in App Store Connect's web UI — these aren't settable from a config file.
-5. Confirm the build you want reviewed is already uploaded via EAS Submit
+5. ✅ App Review sign-in account created and seeded with representative data
+   (matches the screenshots). Credentials are in `appstore/REVIEW-CREDENTIALS.local.md`
+   (gitignored, not in this doc since the repo is public) — paste them into
+   **App Review Information → Sign-In Information** and toggle "Sign-in required" on.
+6. Confirm the build you want reviewed is already uploaded via EAS Submit
    (per `LOOPA-BUILD-GUIDE.md`), then attach it to this version and submit for review.
